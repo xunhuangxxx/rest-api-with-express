@@ -4,6 +4,7 @@
 const express = require('express');
 const morgan = require('morgan');
 const { sequelize, models, User, Course } = require('./models/index');
+const bcrypt = require('bcrypt');
 
 //test the database connection
 console.log('Testing the connection to the database...');
@@ -53,15 +54,31 @@ app.get('/api/users', async(req, res)=> {
   
 // Route that create a new user
 app.post('/api/users', async(req, res)=> {
+   const user = req.body;
+   console.log(user);
+   
+   bcrypt.hash(user.password, 8, async function(err, hash) {
+     try { 
+        await User.create({
+          firstName: user.firstName,
+          lastName: user.lastName,
+          emailAddress: user.emailAddress,
+          password: hash
+        });
+        res.status(201);
+        res.location('/'); 
+      } catch (error) {
+        console.log('ERROR: ', error.name);
+        if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
+          const errors = error.errors.map(err => err.message);
+          res.status(400).json({ errors });   
+       } else {
+          throw error;
+       }
+     }   
+    });
 
-   const newUser = await User.create({
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      emailAddress: req.body.emailAddress,
-      password: req.body.password
-   });
-   res.location('/');
-   res.status(201);
+
    res.end();
 }); 
 
@@ -84,44 +101,51 @@ app.get('/api/courses', async(req, res)=> {
 app.get('/api/courses/:id', async(req, res)=> {
   const courseId = req.params.id;
   const course = await Course.findByPk(courseId);
-  res.json({
-     title: course.title,
-     description: course.description,
-     estimatedTime: course.estimatedTime,
-     materialsNeeded: course.materialsNeeded
-  });
-
+  res.json(course);
   res.status(200);
 }); 
 
 // Route that create a new course
 app.post('/api/courses', async(req, res)=> {
-
-  const newCourse = await Course.create({
-    title: req.body.title,
-    description: req.body.description,
-    estimatedTime: req.body.estimatedTime,
-    materialsNeeded: req.body.materialsNeeded,
-    userId: req.body.userId    
-  });
-  res.location(`/api/courses/${newCourse.id}`);
-  res.status(204);
+  try{
+    const newCourse = await Course.create(req.body);
+    res.location(`/api/courses/${newCourse.id}`);
+    res.status(204);  
+  }catch(error){
+    console.log('ERROR: ', error.name);
+    if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
+      const errors = error.errors.map(err => err.message);
+      res.status(400).json({ errors });   
+    } else {
+      throw error;
+    }
+  }
   res.end();
 }); 
 
 // Route that update the corresponding course
 app.put('/api/courses/:id', async(req, res)=> {
   const courseId = req.params.id;
-  const course = await Course.findByPk(courseId);
-  course.update({
-    title: req.body.title,
-    description: req.body.description,
-    estimatedTime: req.body.estimatedTime,
-    materialsNeeded: req.body.materialsNeeded,
-    userId: req.body.userId    
-  });
-  res.status(204);
-  res.end();
+  try {
+      const course = await Course.findByPk(courseId);
+      await course.update({
+        title: req.body.title,
+        description: req.body.description,
+        estimatedTime: req.body.estimatedTime,
+        materialsNeeded: req.body.materialsNeeded,
+        userId: req.body.userId    
+      });
+    res.status(204);   
+
+  } catch (error) {
+      console.log('ERROR: ', error.name);
+      if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
+        const errors = error.errors.map(err => err.message);
+        res.status(400).json({ errors });   
+      } else {
+        throw error;
+      }    
+  }
 }); 
 
 // Route that delete the corresponding course

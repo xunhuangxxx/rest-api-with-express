@@ -12,21 +12,40 @@ module.exports = (sequelize) => {
 
       title:{
           type: DataTypes.STRING,
+          allowNull:false,
+          validate:{
+            notNull:{
+              msg:"A title is required"
+            },
+            notEmpty:{
+              msg:"please provide a title"
+            }
+          }   
       },
+
       description:{
           type: DataTypes.TEXT,
+          allowNull:false,
+          validate:{
+            notNull:{
+              msg:"A description is required"
+            },
+            notEmpty:{
+              msg:"please provide a description"
+            }
+          }   
+
       },
+
       estimatedTime:{
           type: DataTypes.STRING,
       },
+
       materialsNeeded:{
           type: DataTypes.STRING,
       },
-    //   userId:{
-    //       type:DataTypes.STRING,
-    //   }
-    },  
-    {sequelize});
+
+    },  {sequelize});
    //Define Model Associations
    Course.associate = (models) => {
         Course.belongsTo(models.User, {
