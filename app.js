@@ -191,25 +191,15 @@ app.delete('/api/courses/:id', userAuthentication, async(req, res)=> {
   const courseId = req.params.id;
   const course = await Course.findByPk(courseId);
   if(course.userId===req.currentUser.id){
-    course.destroy();
+    await course.destroy();
     res.status(204);
   }else{
     res.status(403).json({
       message: 'Course can not be deleted',
     });;   
   }
-
   res.end();
 }); 
-
-
-
-
-
-
-
-
-
 
 // send 404 if no other route matched
 app.use((req, res) => {
