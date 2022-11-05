@@ -5,6 +5,7 @@ const express = require('express');
 const morgan = require('morgan');
 const { sequelize, models, User, Course } = require('./models/index');
 const bcrypt = require('bcrypt');
+const auth = require('basic-auth');
 
 //test the database connection
 console.log('Testing the connection to the database...');
@@ -30,6 +31,40 @@ app.use(express.json());
 // setup morgan which gives us http request logging
 app.use(morgan('dev'));
 
+
+//Create user authentication middleware
+
+const userAuthentication = async (req, res, next) => {
+  const credentials = auth(req);
+  let message;
+  if(credentials){
+     const user = await User.findOne({where:{
+       emailAddress: credentials.name,
+     }});
+     if(user){
+          const authenticated = bcrypt.compareSync(credentials.pass, user.password);
+          if(authenticated){
+              req.currentUser = user;
+          }else{
+              message = "Password doesn't match the user";
+          }
+      }else{
+         message = "User not found";
+      }
+  }else{
+      message =  'Auth header not found';
+  }
+
+  if(message){
+    console.error(message);
+    res.status(401).json({ message: 'Access Denied' });
+ }else{
+     next();
+ }    
+}
+
+
+
 // setup a friendly greeting for the root route
 app.get('/', (req, res) => {
   res.json({
@@ -37,25 +72,21 @@ app.get('/', (req, res) => {
   });
 });
 
+
+
 // Route that get all the users' info
-app.get('/api/users', async(req, res)=> {
-  const users = await User.findAll();
-  const allUsers = users.map(user => ({
-      firstName: user.firstName,
-      lastName: user.lastName,
-      emailAddress: user.emailAddress,
-      password: user.password
-   }));
- 
-   res.json(allUsers);
+app.get('/api/users', userAuthentication, async(req, res)=> {
+   res.json({
+     firstName: req.currentUser.firstName,
+     lastName: req.currentUser.lastName,
+     emailAddress: req.currentUser.emailAddress
+   });
    res.status(200);
 }); 
-
   
 // Route that create a new user
 app.post('/api/users', async(req, res)=> {
    const user = req.body;
-   console.log(user);
    
    bcrypt.hash(user.password, 8, async function(err, hash) {
      try { 
@@ -71,15 +102,15 @@ app.post('/api/users', async(req, res)=> {
         console.log('ERROR: ', error.name);
         if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
           const errors = error.errors.map(err => err.message);
+          console.log(errors);
           res.status(400).json({ errors });   
        } else {
           throw error;
        }
-     }   
+     } 
+     res.end();  
     });
-
-
-   res.end();
+   
 }); 
 
 // Route that get all the courses
@@ -106,7 +137,7 @@ app.get('/api/courses/:id', async(req, res)=> {
 }); 
 
 // Route that create a new course
-app.post('/api/courses', async(req, res)=> {
+app.post('/api/courses', userAuthentication, async(req, res)=> {
   try{
     const newCourse = await Course.create(req.body);
     res.location(`/api/courses/${newCourse.id}`);
@@ -124,36 +155,50 @@ app.post('/api/courses', async(req, res)=> {
 }); 
 
 // Route that update the corresponding course
-app.put('/api/courses/:id', async(req, res)=> {
+app.put('/api/courses/:id', userAuthentication, async(req, res)=> {
   const courseId = req.params.id;
-  try {
+    try {
       const course = await Course.findByPk(courseId);
-      await course.update({
-        title: req.body.title,
-        description: req.body.description,
-        estimatedTime: req.body.estimatedTime,
-        materialsNeeded: req.body.materialsNeeded,
-        userId: req.body.userId    
-      });
-    res.status(204);   
-
-  } catch (error) {
-      console.log('ERROR: ', error.name);
-      if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
-        const errors = error.errors.map(err => err.message);
-        res.status(400).json({ errors });   
-      } else {
-        throw error;
-      }    
-  }
+      if(course.userId===req.currentUser.id){
+          await course.update({
+            title: req.body.title,
+            description: req.body.description,
+            estimatedTime: req.body.estimatedTime,
+            materialsNeeded: req.body.materialsNeeded,
+            userId: req.body.userId    
+          });
+           res.status(204);   
+      }else{
+        res.status(403).json({
+          message: 'Course can not be updated',
+        });;
+      }
+    }
+    catch (error) {
+        console.log('ERROR: ', error.name);
+        if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
+          const errors = error.errors.map(err => err.message);
+          res.status(400).json({ errors });   
+        } else {
+          throw error;
+        }    
+    }      
+  res.end();
 }); 
 
 // Route that delete the corresponding course
-app.delete('/api/courses/:id', async(req, res)=> {
+app.delete('/api/courses/:id', userAuthentication, async(req, res)=> {
   const courseId = req.params.id;
   const course = await Course.findByPk(courseId);
-  course.destroy();
-  res.status(204);
+  if(course.userId===req.currentUser.id){
+    course.destroy();
+    res.status(204);
+  }else{
+    res.status(403).json({
+      message: 'Course can not be deleted',
+    });;   
+  }
+
   res.end();
 }); 
 

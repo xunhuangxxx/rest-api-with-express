@@ -63,9 +63,7 @@ module.exports = (sequelize) => {
            msg:"please provide a password"
          }
         },
-     },
-
-       
+     }, 
    }, {sequelize});
    //Define Model Associations
    User.associate = (models) => {
