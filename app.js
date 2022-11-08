@@ -7,6 +7,7 @@ const { sequelize, models, User, Course } = require('./models/index');
 const bcrypt = require('bcrypt');
 const auth = require('basic-auth');
 
+
 //test the database connection
 console.log('Testing the connection to the database...');
 (async() =>{
@@ -87,43 +88,49 @@ app.get('/api/users', userAuthentication, async(req, res)=> {
 // Route that create a new user
 app.post('/api/users', async(req, res)=> {
    const user = req.body;
+   if(user.password.length!==0){
    
-   bcrypt.hash(user.password, 8, async function(err, hash) {
-     try { 
-        await User.create({
-          firstName: user.firstName,
-          lastName: user.lastName,
-          emailAddress: user.emailAddress,
-          password: hash
-        });
-        res.status(201);
-        res.location('/'); 
-      } catch (error) {
-        console.log('ERROR: ', error.name);
-        if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
-          const errors = error.errors.map(err => err.message);
-          console.log(errors);
-          res.status(400).json({ errors });   
-       } else {
-          throw error;
-       }
-     } 
-     res.end();  
-    });
-   
+    bcrypt.hash(user.password, 8, async function(err, hash) {
+      try { 
+         await User.create({
+           firstName: user.firstName,
+           lastName: user.lastName,
+           emailAddress: user.emailAddress,
+           password: hash
+         });
+         res.status(201);
+         res.location('/'); 
+       } catch (error) {
+         console.log('ERROR: ', error.name);
+         if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
+           const errors = error.errors.map(err => err.message);
+           console.log(errors);
+           res.status(400).json({ errors });   
+        } else {
+           throw error;
+        }
+      } 
+     });
+   } else {
+     res.status(403).json({message:"Password can not be empty"});
+   }
+   res.end();  
 }); 
 
 // Route that get all the courses
 app.get('/api/courses', async(req, res)=> {
 
-  const courses = await Course.findAll();
+  const courses = await Course.findAll({include: User});
   const allCourses = courses.map(course => ({
+    
       title: course.title,
       description: course.description,
       estimatedTime: course.estimatedTime,
-      materialsNeeded: course.materialsNeeded
+      materialsNeeded: course.materialsNeeded,
+      firstName:course.User.firstName,
+      lastName:course.User.lastName,
+      email:course.User.emailAddress
   }));
-
   res.json(allCourses);
   res.status(200);
 }); 
@@ -131,8 +138,16 @@ app.get('/api/courses', async(req, res)=> {
 // Route that get the corresponding course
 app.get('/api/courses/:id', async(req, res)=> {
   const courseId = req.params.id;
-  const course = await Course.findByPk(courseId);
-  res.json(course);
+  const course = await Course.findByPk(courseId, {include:User});
+  res.json({
+    title: course.title,
+    description: course.description,
+    estimatedTime: course.estimatedTime,
+    materialsNeeded: course.materialsNeeded,
+    firstName:course.User.firstName,
+    lastName:course.User.lastName,
+    email:course.User.emailAddress
+  });
   res.status(200);
 }); 
 
@@ -141,7 +156,7 @@ app.post('/api/courses', userAuthentication, async(req, res)=> {
   try{
     const newCourse = await Course.create(req.body);
     res.location(`/api/courses/${newCourse.id}`);
-    res.status(204);  
+    res.status(201);  
   }catch(error){
     console.log('ERROR: ', error.name);
     if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){

@@ -59,8 +59,8 @@ module.exports = (sequelize) => {
          notNull:{
            msg:"A password is required"
          },
-         notEmpty:{
-           msg:"please provide a password"
+         notEmpty:{  
+           msg:"please provide a password"           
          }
         },
      }, 
