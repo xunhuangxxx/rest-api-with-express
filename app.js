@@ -99,7 +99,7 @@ app.post('/api/users', async(req, res)=> {
            password: hash
          });
          res.status(201);
-         res.location('/'); 
+         res.location('/');
        } catch (error) {
          console.log('ERROR: ', error.name);
          if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError'){
@@ -110,11 +110,12 @@ app.post('/api/users', async(req, res)=> {
            throw error;
         }
       } 
+        res.end();
      });
    } else {
-     res.status(403).json({message:"Password can not be empty"});
-   }
-   res.end();  
+     res.status(403).json({message:"Password can not be empty"}); 
+     res.end();
+   }  
 }); 
 
 // Route that get all the courses
