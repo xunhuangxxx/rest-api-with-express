@@ -88,7 +88,7 @@ app.get('/api/users', userAuthentication, async(req, res)=> {
 // Route that create a new user
 app.post('/api/users', async(req, res)=> {
    const user = req.body;
-   if(user.password.length!==0){
+   if(user.password?.length!==0){
    
     bcrypt.hash(user.password, 8, async function(err, hash) {
       try { 
